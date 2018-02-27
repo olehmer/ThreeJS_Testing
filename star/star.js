@@ -17,6 +17,10 @@ class DistantStar{
         this.camera = camera;
         this.scene = scene;
 
+        //store the camera and star positions to check if they've moved
+        this.star_pos_stored = position.clone();
+        this.camera_pos_stored = camera.position.clone();
+
         //limit the temperature range
         if(temp < 800){
             this.temperature = 800.0;
@@ -30,16 +34,15 @@ class DistantStar{
         this.TSUN = 5778.0; //solar temp [K]
 
         //create the star dimensions based on the temp and scale
-        //TODO
         this.star_radius = this.starRadiusFromTemp();
         this.resolution = 100;
 
         //this is set to true when the textures are all loaded
         this.ready = false;
 
+        this.glow_size_scale = 1.0;
 
-        this.num_points = 10; //the number of points to raycast to on the star
-        this.glow_size_scale = 1.0; //init to 1
+        this.num_points = 20; //the number of points to raycast to on the star
 
         this.group = new THREE.Group();
 
@@ -49,12 +52,6 @@ class DistantStar{
 
         //IMPORTANT: this function call here kicks off the whole init process
         this.loadImageTexture();
-
-//        var texture = new THREE.TextureLoader().load("star_glow.png", 
-//            (function(texture){
-//                this.uniforms/texture.value = texture;
-//                this.loadImageTexture();
-//            }).bind(this));
         
         this.uniforms = {
             colorbar:{
@@ -68,8 +65,14 @@ class DistantStar{
             temperature:{
                 type:"f",
                 value:this.temperature
+            },
+            shimmers:{
+                type:"fv1",
+                value:[]
             }
         };
+
+        this.generateShimmerVals();
 
             
 
@@ -88,6 +91,7 @@ class DistantStar{
         this.fShader = 
             "varying vec2 vUv;\n"+
             "uniform float colorbar[12];\n"+
+            "uniform float shimmers[12];\n"+
             "uniform sampler2D texture;\n"+
             "uniform float temperature;\n"+
             "void main()	{\n"+
@@ -120,10 +124,20 @@ class DistantStar{
                     "final_c = vec3(colorbar[9], colorbar[10], colorbar[11])*\n"+
                         "magic_sauce;\n"+
                 "}\n"+
-                "gl_FragColor = vec4(final_c*c_tex.rgb, 1.0);\n"+
+                "float spike_brightness = 0.0;\n"+
+                "for(int i=0; i<12; i+=2){\n"+ //the shimmering lines
+                    "float x0 = shimmers[i];\n"+
+                    "float y0 = shimmers[i+1];\n"+
+                    "float rhs = (y0-0.5)*vUv.x/(x0-0.5)+0.5-(0.5*y0-0.25)/(x0-0.5);\n"+
+                    "if(abs(vUv.y-rhs)<0.001){\n"+
+                        "float dist_squared = pow(0.5-vUv.x,2.0)+pow(0.5-vUv.y,2.0);\n"+
+                        "float dist = pow(dist_squared,0.5);\n"+
+                        "spike_brightness = (1.0/pow(dist+0.80,0.5))-1.0;\n"+
+                    "}\n"+
+                "}\n"+
+                "gl_FragColor = vec4(final_c*c_tex.rgb+spike_brightness*0.2, 1.0);\n"+
             "}\n"
         ;
-
 
 
 
@@ -142,20 +156,60 @@ class DistantStar{
         var lum = (diam*diam)*Math.pow(this.temperature/this.TSUN,4.0); //luminosity
         var size = 0.016*Math.pow(lum,0.25)/Math.pow(dist,0.5); //size
         
-        this.star_billboard.scale.set(size*this.scale*this.glow_size_scale, 
+        this.star_billboard.scale.set(size*this.scale*this.glow_size_scale,
             size*this.scale*this.glow_size_scale,1);
     }
 
 
     updateStar(objs){
+        /* 
+         * This function is called by the user in the render step to update
+         * the star shimmer and check the occlusion.
+         * */
         if(this.ready){
             this.getStarOccultationFraction(objs);
+        }
+
+        if(this.detectMovement()){
+            this.camera_pos_stored.copy(this.camera.position);
+            this.position.copy(this.star_pos_stored);
+            this.generateShimmerVals();
+        }
+    }
+
+    detectMovement(){
+        /*
+         * Check if either the star or the camera has moved, if so, return 
+         * true
+         * */
+        var movement = false;
+        if(this.camera.position.x != this.camera_pos_stored.x ||
+           this.camera.position.y != this.camera_pos_stored.y ||
+           this.camera.position.z != this.camera_pos_stored.z)
+        {
+            movement = true;
+        }
+        return movement;
+    }
+
+    generateShimmerVals(){
+        /*
+         * This function will generate 24 random numbers, 12 x and y values.
+         * These values are used as the random lines through which the shimmer
+         * lines are drawn in the shader.
+         * */
+        for(var i=0; i<12;i++){
+            var rand = Math.random();
+            if(rand==0.5){
+                rand += 0.0001; //can't be exactly 0.5
+            }
+            this.uniforms.shimmers.value[i] = rand;
         }
     }
 
 
     getStarOccultationFraction(objs){
-        //add the star sphere to the objs array first
+        //add the star sphere to the objs array 
         objs.push(this.star_sphere);
 
         var count = 0;
@@ -167,8 +221,7 @@ class DistantStar{
             var dest = this.star_sphere.children[i].getWorldPosition();
             count += this.castRay(dest,origin,objs);
         }
-        //TODO this should be done in a shader!
-        //this.star_billboard.material.opacity = count/this.num_points;
+        //this.uniforms.occult_frac.value = count/this.num_points;
         this.glow_size_scale = count/this.num_points;
         if(this.glow_size_scale == 0){
             this.star_billboard.material.visible = false;
@@ -263,17 +316,13 @@ class DistantStar{
         this.uniforms.colorbar.value = this.getBillboardArray(x_pos);
 
         //create the star billboard, texture by: Andreas Ressl and Georg Hammershmid
-        //var texture = new THREE.TextureLoader().load("star_glow.png");
         var geometry = new THREE.PlaneBufferGeometry(this.star_radius*80,
             this.star_radius*80);
-        //var material = new THREE.MeshBasicMaterial( {map: texture} );
         var shaderMaterial = new THREE.ShaderMaterial({
             vertexShader: this.vShader,
             fragmentShader: this.fShader,
             uniforms: this.uniforms
         });
-        //material.transparent = true;
-        //material.blending = THREE.AdditiveBlending;
         shaderMaterial.transparent = true;
         shaderMaterial.blending = THREE.AdditiveBlending;
         this.star_billboard = new THREE.Mesh( geometry, shaderMaterial);
@@ -291,8 +340,10 @@ class DistantStar{
 
         //create the star sphere (the actual star), just a sphere
         var color = this.getStarColor(x_pos);
-        var star_color = new THREE.Color(color.r/255.0, color.g/255.0, color.b/255.0);
+        //var star_color = new THREE.Color(color.r/255.0, color.g/255.0, color.b/255.0);
+        var star_color = new THREE.Color(0x000000);
         var star_sphere_mat = new THREE.MeshBasicMaterial({color:star_color});
+        star_sphere_mat.transparent = true;
         star_sphere_mat.blending = THREE.AdditiveBlending;
         var star_sphere_geo = new THREE.SphereBufferGeometry(
             this.star_radius*this.scale,this.resolution,this.resolution);
@@ -304,7 +355,15 @@ class DistantStar{
             this.quaternion.copy( camera.quaternion );
         };
         this.initStarOcclusionPoints();
-        
+
+        //add the lensflare
+        var lensflare = new THREE.Lensflare();
+        var flare_texture = new THREE.TextureLoader().load("lens_flares.png"); 
+        lensflare.add(new THREE.LensflareElement(flare_texture, 60, 0.6));
+        //star_light.add(lensflare);
+
+
+         
         //add the star sphere and billboard to a group for rendering
         this.group.add(this.star_sphere, this.star_billboard);
     }
@@ -337,6 +396,12 @@ class DistantStar{
     }
 
     getBillboardArray(x){
+        /* 
+         * This function will look at the star color scheme by temperature
+         * (which is stored in this.star_color_data) and return the r,g,b
+         * values for each of the 4 rows on the star_color_data image, so 12
+         * values in total are returned.
+         * */
         //get the average x colors
         var width = 1024;
         var pos_fl = Math.floor(x)*4;

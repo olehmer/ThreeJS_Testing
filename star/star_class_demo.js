@@ -38,6 +38,8 @@ var controls = new THREE.OrbitControls( camera , renderer.domElement);
 //create the star light
 var star_light = new THREE.PointLight(0xffffff, 1, 10000000);
 star_light.position.set(0,0,-500); 
+
+
 scene.add(star_light);
 
 var ambient = new THREE.AmbientLight(0x101010);

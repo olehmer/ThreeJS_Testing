@@ -47,7 +47,7 @@ bg_sphere.scale.x = -1; //invert the texture to the inside, where we are
 scene.add(bg_sphere);
 
 //create the star light
-var star_light = new THREE.PointLight(0xffffff, 1, AU);
+var star_light = new THREE.PointLight(0xffffff, 100000, AU);
 star_light.position.set(0,0,0); 
 scene.add(star_light);
 
@@ -61,7 +61,9 @@ scene.add(bg_star.getStarToRender());
 
 
 var planet_geometry = new THREE.SphereGeometry(6400.0,50,50);
-var planet_material = new THREE.MeshLambertMaterial( {color:0x331fff});
+var planet_texture = new THREE.TextureLoader().load("earth.jpg");
+var planet_material = new THREE.MeshLambertMaterial({map: planet_texture});
+//var planet_material = new THREE.MeshLambertMaterial( {color:0x331fff});
 var planet = new THREE.Mesh(planet_geometry, planet_material);
 planet.position.x = AU;
 planet.position.z = 0;
