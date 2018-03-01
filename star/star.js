@@ -340,8 +340,8 @@ class DistantStar{
 
         //create the star sphere (the actual star), just a sphere
         var color = this.getStarColor(x_pos);
-        //var star_color = new THREE.Color(color.r/255.0, color.g/255.0, color.b/255.0);
-        var star_color = new THREE.Color(0x000000);
+        var t_star_color = new THREE.Color(color.r/255.0, color.g/255.0, color.b/255.0);
+        var star_color = new THREE.Color(0x000000); //make the star invisible
         var star_sphere_mat = new THREE.MeshBasicMaterial({color:star_color});
         star_sphere_mat.transparent = true;
         star_sphere_mat.blending = THREE.AdditiveBlending;
@@ -357,10 +357,14 @@ class DistantStar{
         this.initStarOcclusionPoints();
 
         //add the lensflare
-        var lensflare = new THREE.Lensflare();
-        var flare_texture = new THREE.TextureLoader().load("lens_flares.png"); 
-        lensflare.add(new THREE.LensflareElement(flare_texture, 60, 0.6));
-        //star_light.add(lensflare);
+//        var lensflare = new THREE.Lensflare();
+//        var flare_texture1 = new THREE.TextureLoader().load("lens_flare1.png"); 
+//        var flare_texture2 = new THREE.TextureLoader().load("lens_flare2.png"); 
+//        lensflare.addElement(new THREE.LensflareElement(flare_texture1, 20, 0.1));
+//        lensflare.addElement(new THREE.LensflareElement(flare_texture2, 25, 0.3,
+//            t_star_color, THREE.AdditiveBlending));
+//        lensflare.addElement(new THREE.LensflareElement(flare_texture2, 20, 0.6));
+//        this.star_sphere.add(lensflare);
 
 
          
