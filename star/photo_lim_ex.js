@@ -52,7 +52,7 @@ var star_light = new THREE.PointLight(0xffffff, 5, AU);
 star_light.position.set(0,0,0); 
 scene.add(star_light);
 
-var ambient = new THREE.AmbientLight(0x111010);
+var ambient = new THREE.AmbientLight(0x444444);
 scene.add(ambient);
 
 var star_pos = new THREE.Vector3(0,0,0);
