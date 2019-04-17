@@ -9,6 +9,20 @@
 
 
 class DistantStar{
+    /*
+     * Create a distant star that is realistically colored and sized. 
+     *
+     * Inputs:
+     *      temp     - the star photospheric temperature in K (float)
+     *      position - the position vector of the star (Vecto3D)
+     *      scale    - the scale of the star. The star will be calculated as its
+     *                 actual size in km. So if you wanted to put a star in your 
+     *                 model and you have a planet of radius 1 (say for 1 km 
+     *                 radius). You'd want to put a scale of 0.0001 or something 
+     *                 like that to make the star appear correctly.
+     *      camera   - the camera used in the scene
+     *      scene    - the scene to add the star to for rendering
+     * */
 
     constructor(temp, position, scale, camera, scene){
         this.temperature = temp;
@@ -16,6 +30,18 @@ class DistantStar{
         this.scale = scale;
         this.camera = camera;
         this.scene = scene;
+
+        //Get the location of this script file to load star resources
+        var scripts = document.getElementsByTagName("script");
+        var i =0;
+        for(i=0; i< scripts.length; i++){
+            if( scripts[i]["outerHTML"].includes("star.js") ){
+                var prefix = scripts[i]["outerHTML"].match("src=\".*star.js").toString();
+                prefix = prefix.replace("star.js","");
+                prefix = prefix.replace("src=\"", "");
+                this.prefix = prefix
+            }
+        }
 
         //store the camera and star positions to check if they've moved
         this.star_pos_stored = position.clone();
@@ -60,7 +86,7 @@ class DistantStar{
             },
             texture:{
                 type:"t",
-                value: new THREE.TextureLoader().load("star_glow.png")
+                value: new THREE.TextureLoader().load(this.prefix+"star_glow.png")
             },
             temperature:{
                 type:"f",
@@ -149,6 +175,33 @@ class DistantStar{
         return this.group; 
     }
 
+    getLuminosity(){
+        /* Get the luminosity from a basic fit to the H-R diagram. The returned
+         * luminosity is in solar luminosities.
+         * */
+        return 0.0016*Math.exp(0.0011*this.temperature);
+    }
+
+    setStarTemperature(temp){
+        /* 
+         * Let the user change the temperature of the star
+         * */
+        if (temp > 0 && this.ready ){
+            //Remove all the current children
+            this.group.children = []
+            console.log(this.group.children.length);
+            while (this.group.children.length)
+            {
+                this.group.children.remove(this.group.children[0]);
+            }
+
+            this.temperature = temp;
+            this.star_radius = this.starRadiusFromTemp();
+            this.initStarWithTextures(this.star_color_data);
+        }
+
+    }
+
     updateGlowSize(){
         //Update the size of the glow when moving about
         var diam = this.star_radius*2.0*this.DSUN;
@@ -218,7 +271,8 @@ class DistantStar{
         origin.copy(this.camera.position);
         //loop over the child points of the star
         for(var i=0; i<this.star_sphere.children.length; i++){
-            var dest = this.star_sphere.children[i].getWorldPosition();
+            var dest = new THREE.Vector3();
+            this.star_sphere.children[i].getWorldPosition(dest);
             count += this.castRay(dest,origin,objs);
         }
         //this.uniforms.occult_frac.value = count/this.num_points;
@@ -284,7 +338,7 @@ class DistantStar{
         /* Load the star_spectrum.png texture to get the colobar values
          * we'll use to color the star glow.
          * */
-        var filepath = "star_spectrum.png";
+        var filepath = this.prefix+"star_spectrum.png";
 
         var callback = (function(image){
             var canvas = document.createElement('canvas');
