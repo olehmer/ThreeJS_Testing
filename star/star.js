@@ -189,7 +189,6 @@ class DistantStar{
         if (temp > 0 && this.ready ){
             //Remove all the current children
             this.group.children = []
-            console.log(this.group.children.length);
             while (this.group.children.length)
             {
                 this.group.children.remove(this.group.children[0]);
