@@ -31,7 +31,7 @@ scene.add(camera);
 renderer.setSize(WIDTH, HEIGHT);
 
 //set realistic lighting
-//renderer.physicallyCorrectLights = true;
+renderer.physicallyCorrectLights = true;
 //renderer.gammaOutput = true;
 //renderer.gammaFactor = 2.2;
 
@@ -87,29 +87,31 @@ camera.position.y = 5500;
 var demo_controls = function() {
   this.temp = old_temp;
   this.orb_dist = 1;
+  this.planet_rotation = 50;
   this.rotate = true;
 };
 
-var text = new demo_controls();
+var gui_controls = new demo_controls();
 window.onload = function() {
   var gui = new dat.GUI();
-  gui.add(text, 'temp', 2700, 10000).name("Star Temp.");
-  gui.add(text, 'orb_dist', 0.1, 2).name("Orbital Dist.");
-  gui.add(text, 'rotate').name("Rotate");
+  gui.add(gui_controls, 'temp', 2700, 10000).name("Star Temp.");
+  gui.add(gui_controls, 'orb_dist', 0.1, 2).name("Orbital Dist.");
+  gui.add(gui_controls, 'planet_rotation', 0, 1000).name("Planet Spin");
+  gui.add(gui_controls, 'rotate').name("Camera Spin");
 };
 
 
 function update(){
-    if (text.rotate){
+    if (gui_controls.rotate){
         controls.autoRotate = true;
     }
     else {
         controls.autoRotate = false;
     }
 
-    if ( orbital_dist_old != text.orb_dist ){
-        planet.position.x = text.orb_dist*AU;
-        orbital_dist_old = text.orb_dist;
+    if ( orbital_dist_old != gui_controls.orb_dist ){
+        planet.position.x = gui_controls.orb_dist*AU;
+        orbital_dist_old = gui_controls.orb_dist;
 
 
         //the light should fall with distance but it doesn't, do it here
@@ -118,23 +120,25 @@ function update(){
 
         //move the camera
         controls.target.copy(planet.position);
-        camera.position.x = orbital_dist_old*AU +70000.0;
+        camera.position.x = orbital_dist_old*AU + 70000;
         camera.position.z = 15000;
         camera.position.y = 5500;
     }
-    if( text.temp != old_temp ){
-        old_temp = text.temp;
-        bg_star.setStarTemperature(text.temp);
+    if( gui_controls.temp != old_temp ){
+        old_temp = gui_controls.temp;
+        bg_star.setStarTemperature(gui_controls.temp);
 
         let factor = Math.pow(bg_star.getLuminosity(), 1.0)/Math.pow(orbital_dist_old, 2);
         star_light.intensity = STAR_LIGHT_BASE*factor;
-        console.log(star_light.intensity);
     }
     bg_star.updateStar([planet]);
     renderer.render(scene,camera);
 
     controls.update();
     requestAnimationFrame(update);
+
+    //rotate the planet
+    planet.rotation.y += gui_controls.planet_rotation/50000;
 }
 
 
